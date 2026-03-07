@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>訳振り翻訳ツール</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d0d1a; color: #e0e0e0; font-family: 'Segoe UI', Arial, sans-serif; font-size: 16px; min-height: 100vh; }
+  header { position: sticky; top: 0; z-index: 100; background: #111125; border-bottom: 1px solid #2a2a4a; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  header h1 { font-size: 1.25rem; color: #4a9eff; white-space: nowrap; }
+  .font-controls { display: flex; gap: 6px; }
+  .font-btn { background: #1e1e3a; border: 1px solid #3a3a5a; color: #e0e0e0; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 0.9rem; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
+  .font-btn:hover { background: #2a2a4a; }
+  main { padding: 16px; max-width: 1400px; margin: 0 auto; }
+  .level-selector { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .level-btn { background: #1e1e3a; border: 2px solid #2a2a4a; color: #aaa; border-radius: 8px; padding: 8px 18px; cursor: pointer; font-size: 0.9rem; min-height: 44px; transition: all 0.15s; }
+  .level-btn.active { border-color: #4a9eff; color: #4a9eff; background: #0d1f3a; }
+  .level-btn:hover { background: #2a2a4a; }
+  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px; }
+  @media (max-width: 768px) { .panes { grid-template-columns: 1fr; } header h1 { font-size: 1rem; } }
+  .pane { display: flex; flex-direction: column; gap: 8px; }
+  .pane-label { font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
+  #inputText { width: 100%; background: #111125; border: 1px solid #2a2a4a; color: #e0e0e0; border-radius: 10px; padding: 14px; font-size: 1rem; resize: vertical; min-height: 200px; font-family: inherit; line-height: 1.6; }
+  #inputText:focus { outline: none; border-color: #4a9eff; }
+  .char-counter { font-size: 0.75rem; color: #666; text-align: right; }
+  #outputArea { width: 100%; background: #111125; border: 1px solid #2a2a4a; color: #e0e0e0; border-radius: 10px; padding: 14px; min-height: 200px; line-height: 3.8; word-break: break-word; overflow-wrap: anywhere; }
+  .output-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .tts-btn { background: #1e1e3a; border: 1px solid #3a3a5a; color: #e0e0e0; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 1rem; min-height: 44px; min-width: 44px; }
+  .tts-btn:hover { background: #2a2a4a; }
+  .tts-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .tts-btn.active { background: #0d2a4a; border-color: #4a9eff; color: #4a9eff; }
+  #progressText { font-size: 0.85rem; color: #4a9eff; }
+  .action-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+  #translateBtn { background: #4a9eff; border: none; color: #fff; border-radius: 10px; padding: 12px 28px; font-size: 1rem; font-weight: bold; cursor: pointer; min-height: 44px; transition: background 0.15s; }
+  #translateBtn:hover { background: #3a8eef; }
+  #translateBtn:disabled { background: #334; color: #888; cursor: not-allowed; }
+  .share-section { margin-bottom: 14px; }
+  .share-label { font-size: 0.8rem; color: #888; margin-bottom: 8px; }
+  .share-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+  .share-btn { border: none; border-radius: 8px; padding: 8px 14px; cursor: pointer; font-size: 0.85rem; min-height: 44px; transition: opacity 0.15s; white-space: nowrap; }
+  .share-btn:hover { opacity: 0.85; }
+  .cache-bar { display: flex; align-items: center; gap: 12px; background: #111125; border: 1px solid #2a2a4a; border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; flex-wrap: wrap; margin-bottom: 14px; }
+  #cacheInfo { color: #aaa; }
+  #clearCacheBtn { background: #1e1e3a; border: 1px solid #3a3a5a; color: #e0e0e0; border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 0.8rem; min-height: 36px; }
+  #clearCacheBtn:hover { background: #2a2a4a; }
+  .history-section { margin-bottom: 14px; }
+  .history-label { font-size: 0.8rem; color: #888; margin-bottom: 6px; }
+  #historyList { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
+  .history-item { background: #111125; border: 1px solid #2a2a4a; border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #aaa; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; transition: background 0.1s; }
+  .history-item:hover { background: #1a1a35; }
+  .history-item .hist-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .history-item .hist-time { color: #555; white-space: nowrap; }
+  .word-token { display: inline-flex; cursor: pointer; border-radius: 3px; transition: background 0.1s; vertical-align: bottom; }
+  .word-token:hover { background: #1e2e4a; }
+  .word-token.highlighted { background: #1e3a5f; }
+  ruby { display: inline-flex; flex-direction: column-reverse; align-items: center; line-height: 1; margin: 0 2px; }
+  ruby rt { font-size: 0.65em; color: #4a9eff; text-align: center; line-height: 1.2; white-space: nowrap; }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal-box { background: #1a1a2e; border: 1px solid #3a3a5a; border-radius: 12px; padding: 24px; max-width: 360px; width: 90%; display: flex; flex-direction: column; gap: 16px; }
+  .modal-title { color: #4a9eff; font-size: 1rem; font-weight: bold; }
+  .modal-msg { color: #ccc; font-size: 0.9rem; }
+  .modal-copy-btn { background: #4a9eff; border: none; color: #fff; border-radius: 8px; padding: 10px; cursor: pointer; font-size: 0.95rem; min-height: 44px; }
+  .modal-copy-btn:hover { background: #3a8eef; }
+  .modal-close { background: #1e1e3a; border: 1px solid #3a3a5a; color: #e0e0e0; border-radius: 8px; padding: 8px; cursor: pointer; font-size: 0.85rem; min-height: 44px; }
+  .modal-close:hover { background: #2a2a4a; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #0d0d1a; }
+  ::-webkit-scrollbar-thumb { background: #3a3a5a; border-radius: 3px; }
+  .vocab-card { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid #1e1e3a; gap:12px; }
+  .vocab-card:last-child { border-bottom:none; }
+  .vocab-card:hover { background:#161628; }
+  .vocab-en { color:#e0e0e0; font-size:0.95rem; font-weight:500; min-width:120px; }
+  .vocab-ja { color:#4a9eff; font-size:0.9rem; flex:1; }
+  .vocab-del { background:none; border:none; color:#555; cursor:pointer; font-size:1rem; padding:4px 8px; border-radius:4px; }
+  .vocab-del:hover { color:#ff6b6b; background:#2a1a1a; }
+  .ad-placeholder { background: #1a1a2e; border: 1px dashed #333; border-radius: 8px; padding: 10px; min-height: 90px; display: flex; align-items: center; justify-content: center; color: #555; font-size: 12px; }
+  .ad-placeholder::before { content: '広告スペース'; }
+</style>
+</head>
+<body>
+<header>
+  <h1>訳振り翻訳ツール</h1>
+  <div class="font-controls">
+    <button class="font-btn" onclick="changeFontSize(-1)">A-</button>
+    <button class="font-btn" onclick="changeFontSize(1)">A+</button>
+  </div>
+</header>
+<div style="background:#111125;border-bottom:1px solid #2a2a4a;padding:10px 20px;">
+  <p style="font-size:0.85rem;color:#888;line-height:1.6;">訳振り翻訳ツールは、英文を貼り付けるだけで、すべての単語の上に日本語訳をルビ形式で表示するWebアプリです。辞書を引く手間も、アプリをインストールする必要もありません。</p>
+</div>
+<div class="ad-container ad-header">
+  <div class="ad-placeholder">
+    <!-- Google AdSense Code Here -->
+    <ins class="adsbygoogle"
+      style="display:block"
+      data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+      data-ad-slot="XXXXXXXXXX"
+      data-ad-format="auto"
+      data-full-width-responsive="true">
+    </ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+  </div>
+</div>
+<main>
+  <div class="share-section">
+    <div class="share-buttons">
+      <button class="share-btn" style="background:#333;color:#fff" onclick="shareCopy()">📋 コピー</button>
+      <button class="share-btn" style="background:#EA4335;color:#fff" onclick="shareGmail()">📨 Gmail</button>
+      <button class="share-btn" style="background:#000;color:#fff" onclick="shareTwitter()">🐦 X / Twitter</button>
+    </div>
+  </div>
+
+  <div class="panes">
+    <div class="pane">
+      <div class="pane-label">入力テキスト</div>
+      <textarea id="inputText" placeholder="英文を入力してください..." oninput="updateCharCount()"></textarea>
+      <div class="char-counter"><span id="charCount">0</span> 文字</div>
+    </div>
+    <div class="pane">
+      <div class="pane-label">訳振り結果</div>
+      <div id="outputArea"><span style="color:#555">翻訳結果がここに表示されます</span></div>
+      <div class="output-controls">
+        <button class="tts-btn" id="ttsPlayBtn" onclick="ttsPlay()" title="再生">▶️ 再生</button>
+        <button class="tts-btn" id="ttsPauseBtn" onclick="ttsPause()" title="一時停止" disabled>⏸ 一時停止</button>
+        <button class="tts-btn" id="ttsStopBtn" onclick="ttsStop()" title="停止" disabled>⏹ 停止</button>
+        <span id="progressText"></span>
+      </div>
+    </div>
+  </div>
+  <div class="action-row">
+    <button id="translateBtn" onclick="doTranslate()">訳振り翻訳</button>
+    <button id="vocabBtn" onclick="buildVocab()" style="background:#1e1e3a;border:1px solid #3a3a5a;color:#e0e0e0;border-radius:10px;padding:12px 20px;font-size:1rem;cursor:pointer;min-height:44px;">📖 単語帳を作る</button>
+  </div>
+  <div class="cache-bar">
+    <span id="cacheInfo">キャッシュ: 0語保存済み</span>
+    <button id="clearCacheBtn" onclick="clearCache()">キャッシュをクリア</button>
+  </div>
+  <div class="history-section">
+    <div class="history-label">翻訳履歴（最新10件）</div>
+    <div id="historyList"></div>
+  </div>
+  <div class="vocab-section" id="vocabSection" style="display:none;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+      <div class="history-label" style="margin:0;">📖 単語帳</div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="copyVocab()" style="background:#1e1e3a;border:1px solid #3a3a5a;color:#e0e0e0;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:0.8rem;min-height:36px;">📋 コピー</button>
+        <button onclick="clearVocab()" style="background:#1e1e3a;border:1px solid #3a3a5a;color:#e0e0e0;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:0.8rem;min-height:36px;">🗑 クリア</button>
+      </div>
+    </div>
+    <div id="vocabList" style="background:#111125;border:1px solid #2a2a4a;border-radius:10px;padding:14px;max-height:320px;overflow-y:auto;"></div>
+    <div style="font-size:0.75rem;color:#555;margin-top:6px;">※ 翻訳した単語の一覧です。同じ単語は1回のみ表示。</div>
+  </div>
+</main>
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
+  <div class="modal-box">
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-msg" id="modalMsg"></div>
+    <div id="modalContent"></div>
+    <button class="modal-close" onclick="closeModal()">閉じる</button>
+  </div>
+</div>
+<script>
+var currentLevel=2,currentFontSize=16,translationHistory=[],currentResult='';
+var CACHE_KEY='yakuburi_cache_v2';
+
+// ===== BUILT-IN DICTIONARY (500+ words) =====
+var builtinDict={
+  // Articles / determiners
+  a:'一つの',an:'一つの',the:'その',
+  // Be verbs
+  is:'です',are:'です',was:'でした',were:'でした',be:'ある',been:'あった',being:'ある',
+  // Have
+  have:'持つ',has:'持つ',had:'持っていた',
+  // Do
+  do:'する',does:'する',did:'した',
+  // Modals
+  will:'～だろう',would:'～だろう',can:'できる',could:'できた',
+  should:'すべき',may:'かもしれない',might:'かもしれない',shall:'～しよう',must:'ねばならない',
+  // Prepositions
+  in:'～の中に',on:'～の上に',at:'～で',to:'～へ',of:'～の',
+  'for':'～のために',with:'～と一緒に',from:'～から',by:'～によって',about:'～について',
+  as:'～として',into:'～の中へ',through:'～を通って',after:'～の後',before:'～の前',
+  between:'～の間',up:'上へ',down:'下へ',out:'外へ',
+  against:'～に対して',during:'～の間',since:'～以来',
+  until:'～まで',within:'～以内',without:'～なしで',
+  across:'～を横切って',along:'～に沿って',among:'～の中で',
+  behind:'～の後ろに',below:'～の下に',beyond:'～を超えて',
+  except:'～を除いて',inside:'～の内側に',outside:'～の外側に',
+  toward:'～に向かって',throughout:'～の至る所で',despite:'～にもかかわらず',
+  // Negation / conjunctions
+  not:'～ない',no:'いいえ',and:'そして',or:'または',but:'しかし',
+  so:'だから',if:'もし',when:'いつ',where:'どこ',who:'誰',what:'何',
+  which:'どちら',that:'あれ',this:'これ',these:'これら',those:'あれら',
+  there:'そこ',here:'ここ',how:'どのように',why:'なぜ',
+  while:'～の間',though:'～だけれども',whether:'～かどうか',
+  // Quantifiers
+  all:'すべて',some:'いくつか',any:'任意の',each:'それぞれ',every:'すべての',
+  both:'両方',few:'少数の',many:'多くの',much:'多量の',more:'もっと',most:'最も',
+  // Adverbs
+  other:'他の',such:'そのような',than:'～より',then:'それから',also:'また',
+  just:'ちょうど',only:'だけ',even:'さえ',still:'まだ',already:'すでに',now:'今',
+  never:'決して～ない',always:'いつも',often:'しばしば',very:'とても',too:'～も',
+  well:'よく',back:'戻って',over:'～の上に',
+  // Adjectives
+  own:'自分の',same:'同じ',new:'新しい',old:'古い',good:'良い',great:'素晴らしい',
+  first:'最初の',last:'最後の',long:'長い',little:'小さい',large:'大きい',big:'大きい',
+  high:'高い',small:'小さい',next:'次の',early:'早い',young:'若い',important:'重要な',
+  public:'公共の',private:'個人の',real:'本当の',best:'最良の',free:'自由な',able:'できる',
+  around:'周りに',another:'別の',
+  major:'主要な',local:'地元の',national:'国家的な',international:'国際的な',
+  political:'政治的な',economic:'経済的な',social:'社会的な',global:'世界的な',
+  current:'現在の',former:'前の',recent:'最近の',possible:'可能な',necessary:'必要な',
+  available:'利用可能な',specific:'具体的な',certain:'確かな',clear:'明確な',
+  common:'一般的な',dead:'死んだ',different:'異なる',difficult:'難しい',
+  final:'最終的な',full:'完全な',hard:'難しい',human:'人間の',late:'遅い',
+  main:'主な',past:'過去の',ready:'準備ができた',short:'短い',simple:'シンプルな',
+  strong:'強い',true:'本当の',whole:'全体の',wide:'広い',
+  supreme:'最高の',senior:'上級の',official:'当局者',
+  // Common verbs
+  come:'来る',came:'来た',go:'行く',went:'行った',get:'得る',got:'得た',
+  give:'与える',gave:'与えた',know:'知る',knew:'知っていた',say:'言う',said:'言った',
+  see:'見る',saw:'見た',take:'取る',took:'取った',make:'作る',made:'作った',
+  think:'考える',thought:'考えた',look:'見る',use:'使う',find:'見つける',
+  found:'見つけた',want:'欲しい',tell:'伝える',told:'伝えた',put:'置く',keep:'保つ',
+  kept:'保った',let:'させる',show:'示す',hear:'聴く',heard:'聴いた',run:'走る',
+  ran:'走った',move:'動く',live:'生きる',believe:'信じる',hold:'持つ',held:'持った',
+  bring:'持ってくる',brought:'持ってきた',write:'書く',wrote:'書いた',sit:'座る',
+  sat:'座った',stand:'立つ',stood:'立った',lose:'失う',lost:'失った',pay:'払う',
+  paid:'払った',meet:'会う',met:'会った',include:'含む',continue:'続ける',
+  change:'変える',lead:'導く',led:'導いた',understand:'理解する',stop:'止まる',
+  create:'作る',speak:'話す',spoke:'話した',read:'読む',grow:'育つ',grew:'育った',
+  open:'開ける',walk:'歩く',win:'勝つ',won:'勝った',remember:'覚える',love:'愛する',
+  appear:'現れる',buy:'買う',bought:'買った',wait:'待つ',send:'送る',sent:'送った',
+  build:'建てる',built:'建てた',stay:'滞在する',fall:'落ちる',fell:'落ちた',cut:'切る',
+  reach:'達する',return:'戻る',explain:'説明する',leave:'去る',left:'去った',
+  announce:'発表する',announced:'発表した',publish:'公開する',published:'公開した',
+  follow:'従う',followed:'従った',oversee:'監督する',report:'報告',reporting:'報告',reported:'報告された',
+  edit:'編集する',edited:'編集された',
+  // Nouns
+  transition:'移行',period:'期間',death:'死',end:'終わり',
+  president:'大統領',council:'評議会',assembly:'議会',expert:'専門家',
+  successor:'後継者',appoint:'任命する',appointed:'任命された',
+  leader:'指導者',bbc:'BBC',persian:'ペルシャの',
+  government:'政府',country:'国',people:'人々',world:'世界',
+  year:'年',time:'時間',day:'日',way:'方法',man:'男性',woman:'女性',
+  child:'子供',city:'都市',state:'州',group:'グループ',company:'会社',
+  system:'システム',question:'質問',work:'仕事',life:'生活',hand:'手',part:'部分',
+  place:'場所',case:'場合',week:'週',month:'月',right:'正しい',area:'地域',
+  number:'数',night:'夜',point:'点',home:'家',water:'水',room:'部屋',
+  mother:'母',father:'父',family:'家族',body:'体',student:'学生',school:'学校',
+  teacher:'先生',book:'本',word:'言葉',door:'ドア',eye:'目',face:'顔',head:'頭',
+  heart:'心',money:'お金',name:'名前',power:'力',problem:'問題',result:'結果',
+  morning:'杉',evening:'夕方',hospital:'病院',office:'オフィス',police:'警察',
+  army:'軍隊',war:'戦争',peace:'平和',nation:'国家',party:'政党',
+  election:'選挙',vote:'投票',law:'法律',court:'裁判所',judge:'判事',
+  minister:'大臣',parliament:'議会',capital:'首都',border:'国境',attack:'攻撃',
+  security:'安全保障',military:'軍事',news:'ニュース',statement:'声明'
+};
+
+// ===== IDIOMS =====
+var idioms=[["on the other hand","一方で"],["in order to","～するために"],["in spite of","～にもかかわらず"],["in front of","～の前に"],["as well as","～と同様に"],["as soon as","～するとすぐに"],["as a result","その結果"],["because of","～のために"],["instead of","～の代わりに"],["according to","～によると"],["due to","～のために"],["in addition","さらに"],["in fact","実際に"],["for example","例えば"],["for instance","例えば"],["rather than","～よりむしろ"],["such as","～などの"],["next to","～の隣に"],["at least","少なくとも"],["at last","ついに"],["so that","～するために"],["used to","かつて～だった"],["be able to","～できる"],["run into","～に偶然会う"],["come up with","～を思いつく"],["look forward to","～を楽しみにする"],["give up","諸める"],["take off","離陸する/脱ぐ"],["put off","延期する"],["turn on","スイッチを入れる"],["turn off","スイッチを切る"],["break down","故障する"],["carry out","実行する"],["find out","見つける/知る"],["get along","仲良くやる"],["go through","経験する"],["hand in","提出する"],["keep up","続ける"],["look up","調べる"],["make up","作り上げる/仲直りする"],["point out","指摘する"],["set up","設置する"],["show up","現れる"],["take on","引き受ける"],["work out","解決する/運動する"]];
+idioms.sort(function(a,b){return b[0].split(' ').length-a[0].split(' ').length;});
+
+var skipWordsLv2={i:1,my:1,me:1,mine:1,you:1,your:1,yours:1,he:1,his:1,him:1,she:1,her:1,hers:1,it:1,its:1,we:1,our:1,us:1,ours:1,they:1,their:1,them:1,theirs:1,the:1};
+
+function getCache(){try{return JSON.parse(localStorage.getItem(CACHE_KEY)||'{}')}catch(e){return{}}}
+function saveCache(c){try{localStorage.setItem(CACHE_KEY,JSON.stringify(c))}catch(e){}}
+function updateCacheInfo(){var c=getCache();document.getElementById('cacheInfo').textContent='キャッシュ: '+Object.keys(c).length+'語保存済み';}
+function clearCache(){localStorage.removeItem(CACHE_KEY);updateCacheInfo();}
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ===== FIX 1: STEMMING for case-insensitive + inflection lookup =====
+function lookupInDict(word) {
+  var w = word.toLowerCase();
+  if (builtinDict[w]) return builtinDict[w];
+  var forms = [];
+  // -ing: reporting->report, writing->write, running->run
+  if (w.length > 4 && w.endsWith('ing')) {
+    var b = w.slice(0,-3);
+    forms.push(b, b+'e');
+    if (b.length > 2 && b[b.length-1]===b[b.length-2]) forms.push(b.slice(0,-1));
+  }
+  // -ed: edited->edit, loved->love, stopped->stop, studied->study
+  if (w.length > 3 && w.endsWith('ed')) {
+    var b2 = w.slice(0,-2);
+    forms.push(b2, b2+'e');
+    if (b2.length > 2 && b2[b2.length-1]===b2[b2.length-2]) forms.push(b2.slice(0,-1));
+    if (w.endsWith('ied')) forms.push(w.slice(0,-3)+'y');
+  }
+  // -s/-es/-ies
+  if (w.length > 3 && w.endsWith('ies')) forms.push(w.slice(0,-3)+'y');
+  if (w.length > 3 && w.endsWith('es')) forms.push(w.slice(0,-2));
+  if (w.length > 2 && w.endsWith('s')) forms.push(w.slice(0,-1));
+  // -er/-est
+  if (w.length > 4 && w.endsWith('er')) forms.push(w.slice(0,-2));
+  if (w.length > 5 && w.endsWith('est')) forms.push(w.slice(0,-3));
+  // -ly
+  if (w.length > 4 && w.endsWith('ly')) forms.push(w.slice(0,-2));
+  for (var i=0;i<forms.length;i++) {
+    if (builtinDict[forms[i]]) return builtinDict[forms[i]];
+  }
+  return null;
+}
+
+// ===== MYMEMORY API with 3s timeout =====
+async function fetchTranslation(word) {
+  var clean = word.toLowerCase().replace(/[^a-z]/g, '');
+  if (!clean) return null;
+  try {
+    var res = await fetch(
+      'https://api.mymemory.translated.net/get?q='+encodeURIComponent(clean)+'&langpair=en|ja',
+      { signal: AbortSignal.timeout(3000) }
+    );
+    var data = await res.json();
+    if (data.responseStatus === 200 && data.responseData.translatedText) {
+      var translation = data.responseData.translatedText;
+      if (translation.toLowerCase() !== clean && !translation.includes('<')) {
+        return translation;
+      }
+    }
+  } catch(e) {}
+  return null;
+}
+
+function tokenize(text){
+  var raw=text.match(/\S+|\s+/g)||[],tokens=[];
+  for(var i=0;i<raw.length;i++){
+    var t=raw[i];
+    if(/^\s+$/.test(t)){tokens.push({type:'space',value:t});continue;}
+    var m=t.match(/^([^a-zA-Z']*)([a-zA-Z'][a-zA-Z'-]*)([^a-zA-Z']*)$/);
+    if(m){if(m[1])tokens.push({type:'punct',value:m[1]});tokens.push({type:'word',value:m[2]});if(m[3])tokens.push({type:'punct',value:m[3]});}
+    else tokens.push({type:'punct',value:t});
+  }
+  return tokens;
+}
+
+// ===== FIX 6: RUBY HTML builder =====
+function makeRuby(word, reading, isIdiom) {
+  var wClass = isIdiom ? 'word-token idiom-token' : 'word-token';
+  return '<span class="'+wClass+'" onclick="highlightWord(this)"><ruby>'+escHtml(word)+'<rt>'+escHtml(reading)+'</rt></ruby></span>';
+}
+function makeWordOnly(word) {
+  return '<span class="word-token" onclick="highlightWord(this)">'+escHtml(word)+'</span>';
+}
+
+// ===== BATCH processing =====
+async function processBatch(batch, wordEntries, annotations, cache) {
+  await Promise.all(batch.map(async function(idx){
+    var word = wordEntries[idx].word;
+    var lower = word.toLowerCase();
+    var result = await fetchTranslation(lower);
+    if (!result) {
+      // Stemming fallback: try simplified forms via cache then API
+      var stems = [];
+      if (lower.endsWith('s') && lower.length > 2) stems.push(lower.slice(0,-1));
+      if (lower.endsWith('ing') && lower.length > 5) stems.push(lower.slice(0,-3));
+      if (lower.endsWith('ed') && lower.length > 4) stems.push(lower.slice(0,-2));
+      if (lower.endsWith('ly') && lower.length > 4) stems.push(lower.slice(0,-2));
+      if (lower.endsWith('er') && lower.length > 4) stems.push(lower.slice(0,-2));
+      for (var si=0; si<stems.length && !result; si++) {
+        result = cache[stems[si]] || await fetchTranslation(stems[si]);
+      }
+    }
+    if (result) {
+      cache[lower] = result;
+      annotations[idx] = {type:'word', translation: result};
+    } else if (word[0] === word[0].toUpperCase() && word[0] !== word[0].toLowerCase()) {
+      annotations[idx] = {type:'skip'};
+    } else {
+      annotations[idx] = {type:'skip'};
+    }
+  }));
+}
+
+async function doTranslate(){
+  var inputText=document.getElementById('inputText').value.trim();
+  if(!inputText)return;
+  var btn=document.getElementById('translateBtn');
+  btn.disabled=true;
+  document.getElementById('progressText').textContent='準備中...';
+  document.getElementById('outputArea').innerHTML='';
+  var cache=getCache(),tokens=tokenize(inputText),wordEntries=[];
+  for(var ti=0;ti<tokens.length;ti++){if(tokens[ti].type==='word')wordEntries.push({index:ti,word:tokens[ti].value});}
+  var wordSeq=wordEntries.map(function(e){return e.word.toLowerCase();}),annotations=new Array(wordEntries.length).fill(null),SKIP='__SKIP__';
+
+  // Idiom pass
+  for(var ii=0;ii<idioms.length;ii++){
+    var phrase=idioms[ii][0],meaning=idioms[ii][1],parts=phrase.toLowerCase().split(' '),plen=parts.length;
+    for(var wi=0;wi<=wordSeq.length-plen;wi++){
+      if(annotations[wi]===SKIP)continue;
+      var match=true;
+      for(var pi=0;pi<plen;pi++){if(wordSeq[wi+pi]!==parts[pi]||annotations[wi+pi]===SKIP){match=false;break;}}
+      if(match){
+        var iwords=wordEntries.slice(wi,wi+plen).map(function(e){return e.word;}).join(' ');
+        annotations[wi]={type:'idiom',words:iwords,meaning:meaning};
+        for(var pi2=1;pi2<plen;pi2++)annotations[wi+pi2]=SKIP;
+      }
+    }
+  }
+
+  // Single word pass - dict + cache first
+  var needLookup=[];
+  for(var wi2=0;wi2<wordEntries.length;wi2++){
+    if(annotations[wi2]!==null)continue;
+    var word=wordEntries[wi2].word,lower=word.toLowerCase();
+    if(skipWordsLv2[lower]){annotations[wi2]={type:'skip'};continue;}
+    // FIX 1: stemming-aware dict lookup
+    var dictResult = lookupInDict(word);
+    if(dictResult){annotations[wi2]={type:'word',translation:dictResult};continue;}
+    if(cache[lower]){annotations[wi2]={type:'word',translation:cache[lower]};continue;}
+    needLookup.push(wi2);
+  }
+
+  var total=needLookup.length,done=0;
+  function updateProgress(){document.getElementById('progressText').textContent=total>0?'翻訳中... '+done+'/'+total+'語':'';}
+  updateProgress();
+
+  // FIX 5: process in batches of 20
+  var batchSize=20;
+  for(var bi=0;bi<needLookup.length;bi+=batchSize){
+    var batch=needLookup.slice(bi,bi+batchSize);
+    await processBatch(batch,wordEntries,annotations,cache);
+    done+=batch.length;
+    updateProgress();
+  }
+
+  saveCache(cache);updateCacheInfo();
+
+  // FIX 6: Build ruby HTML output
+  var html='',wIdx=0;
+  for(var ti2=0;ti2<tokens.length;ti2++){
+    var tok=tokens[ti2];
+    if(tok.type==='space'){html+=tok.value.replace(/\n/g,'<br>');continue;}
+    if(tok.type==='punct'){html+=escHtml(tok.value);continue;}
+    var wI=wIdx++,ann=annotations[wI];
+    if(ann===SKIP)continue;
+    if(!ann){html+=escHtml(tok.value);continue;}
+    if(ann.type==='skip') html+=makeWordOnly(tok.value);
+    else if(ann.type==='idiom') html+=makeRuby(ann.words,ann.meaning,true);
+    else html+=makeRuby(tok.value,ann.translation,false);
+  }
+
+  document.getElementById('outputArea').innerHTML=html;
+  document.getElementById('progressText').textContent=total>0?'完了（'+total+'語をAPI検索）':'完了';
+  btn.disabled=false;
+  currentResult=document.getElementById('outputArea').innerText||'';
+  saveHistory(inputText,currentResult);
+}
+
+function highlightWord(el){document.querySelectorAll('.word-token.highlighted').forEach(function(e){if(e!==el)e.classList.remove('highlighted');});el.classList.toggle('highlighted');}
+function changeFontSize(d){currentFontSize=Math.max(12,Math.min(28,currentFontSize+d));document.getElementById('outputArea').style.fontSize=currentFontSize+'px';document.getElementById('inputText').style.fontSize=currentFontSize+'px';}
+function updateCharCount(){document.getElementById('charCount').textContent=document.getElementById('inputText').value.length;}
+
+// ===== VOCAB (単語帳) =====
+var vocabDB = {}; // { en: ja }
+function addToVocab(en, ja) {
+  var key = en.toLowerCase();
+  if (!vocabDB[key]) vocabDB[key] = {en: en, ja: ja};
+}
+function buildVocab() {
+  var outputArea = document.getElementById('outputArea');
+  var rubies = outputArea.querySelectorAll('ruby');
+  if (rubies.length === 0) { showToast('先に翻訳してください'); return; }
+  rubies.forEach(function(ruby) {
+    var word = ruby.childNodes[0] ? ruby.childNodes[0].textContent.trim() : '';
+    var rt = ruby.querySelector('rt') ? ruby.querySelector('rt').textContent.trim() : '';
+    if (word && rt) addToVocab(word, rt);
+  });
+  renderVocab();
+  document.getElementById('vocabSection').style.display = 'block';
+  document.getElementById('vocabSection').scrollIntoView({behavior:'smooth', block:'start'});
+  showToast('単語帳を更新しました（' + Object.keys(vocabDB).length + '語）');
+}
+function renderVocab() {
+  var list = document.getElementById('vocabList');
+  var keys = Object.keys(vocabDB);
+  if (keys.length === 0) { list.innerHTML = '<div style="color:#555;font-size:0.85rem;padding:8px;">単語がありません</div>'; return; }
+  keys.sort();
+  list.innerHTML = keys.map(function(k) {
+    var item = vocabDB[k];
+    return '<div class="vocab-card">'
+      + '<span class="vocab-en">' + escHtml(item.en) + '</span>'
+      + '<span class="vocab-ja">' + escHtml(item.ja) + '</span>'
+      + '<button class="vocab-del" onclick="deleteVocab(\'' + escHtml(k) + '\')" title="削除">✕</button>'
+      + '</div>';
+  }).join('');
+}
+function deleteVocab(key) { delete vocabDB[key]; renderVocab(); }
+function clearVocab() { vocabDB = {}; renderVocab(); showToast('単語帳をクリアしました'); }
+function copyVocab() {
+  var keys = Object.keys(vocabDB).sort();
+  if (keys.length === 0) { showToast('単語がありません'); return; }
+  var text = keys.map(function(k){ return vocabDB[k].en + '\t' + vocabDB[k].ja; }).join('\n');
+  navigator.clipboard.writeText(text).then(function(){ showToast('単語帳をコピーしました（' + keys.length + '語）'); });
+}
+var _ttsPaused = false;
+function _ttsUpdateButtons(playing, paused) {
+  var playBtn = document.getElementById('ttsPlayBtn');
+  var pauseBtn = document.getElementById('ttsPauseBtn');
+  var stopBtn = document.getElementById('ttsStopBtn');
+  playBtn.disabled = playing && !paused;
+  pauseBtn.disabled = !playing;
+  pauseBtn.textContent = paused ? '▶️ 再開' : '⏸ 一時停止';
+  stopBtn.disabled = !playing;
+  if (playing && !paused) { playBtn.classList.add('active'); } else { playBtn.classList.remove('active'); }
+}
+function ttsPlay() {
+  if (!window.speechSynthesis) { alert('このブラウザは音声読み上げに対応していません'); return; }
+  if (_ttsPaused && window.speechSynthesis.paused) {
+    window.speechSynthesis.resume();
+    _ttsPaused = false;
+    _ttsUpdateButtons(true, false);
+    return;
+  }
+  var text = document.getElementById('inputText').value;
+  if (!text.trim()) return;
+  window.speechSynthesis.cancel();
+  var u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US';
+  u.onstart = function() { _ttsPaused = false; _ttsUpdateButtons(true, false); };
+  u.onend = function() { _ttsPaused = false; _ttsUpdateButtons(false, false); };
+  u.onerror = function() { _ttsPaused = false; _ttsUpdateButtons(false, false); };
+  window.speechSynthesis.speak(u);
+}
+function ttsPause() {
+  if (!window.speechSynthesis) return;
+  if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+    window.speechSynthesis.pause();
+    _ttsPaused = true;
+    _ttsUpdateButtons(true, true);
+  } else if (window.speechSynthesis.paused) {
+    window.speechSynthesis.resume();
+    _ttsPaused = false;
+    _ttsUpdateButtons(true, false);
+  }
+}
+function ttsStop() {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  _ttsPaused = false;
+  _ttsUpdateButtons(false, false);
+}
+function speakOutput() { ttsPlay(); }
+function saveHistory(input,result){var now=new Date(),t=now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});translationHistory.unshift({input:input.substring(0,80),result:result,time:t});if(translationHistory.length>10)translationHistory.pop();renderHistory();}
+function renderHistory(){var list=document.getElementById('historyList');list.innerHTML='';translationHistory.forEach(function(item){var div=document.createElement('div');div.className='history-item';div.innerHTML='<span class="hist-text">'+escHtml(item.input)+'</span><span class="hist-time">'+item.time+'</span>';(function(inp){div.onclick=function(){document.getElementById('inputText').value=inp;updateCharCount();};})(item.input);list.appendChild(div);});}
+function getShareText(){var resultDiv=document.getElementById('outputArea');var rubies=resultDiv.querySelectorAll('ruby');var shareText='';if(rubies.length>0){rubies.forEach(function(ruby){var rb=ruby.querySelector('rb');var word=rb?rb.textContent:(ruby.childNodes[0]?ruby.childNodes[0].textContent:'');var rt=ruby.querySelector('rt')?ruby.querySelector('rt').textContent:'';shareText+=word+'（'+rt+'） ';});}else{shareText=resultDiv.innerText||'翻訳結果がありません';}return shareText.replace(/\n+/g,' ').replace(/\s+/g,' ').trim();}
+async function shareCopy(){var text=getShareText();try{await navigator.clipboard.writeText(text);showToast('コピーしました！');}catch(e){showModal('コピー','テキストを手動でコピーしてください',text,true);}}
+function shareMail(){var a=document.createElement('a');a.href='mailto:?subject='+encodeURIComponent('訳振り翻訳結果')+'&body='+encodeURIComponent(getShareText());a.click();}
+function shareGmail(){var subject=encodeURIComponent('訳振り翻訳結果');var text=getShareText();if(text.length>1500)text=text.substring(0,1500);var body=encodeURIComponent(text);window.open('https://mail.google.com/mail/?view=cm&fs=1&su='+subject+'&body='+body,'_blank');}
+function shareTwitter(){var text=getShareText();if(text.length>240)text=text.substring(0,240)+'...';window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text)+'&hashtags=英語学習','_blank');}
+function shareTeams(){window.open('https://teams.microsoft.com/share?msgText='+encodeURIComponent(getShareText()),'_blank');}
+function shareSlack(){showModal('💬 Slack','Slackを開いて貼り付けてください',getShareText(),true);}
+function shareNotion(){showModal('📝 Notion','Notionに貼り付けてください',getShareText(),true);}
+var _modalCopyText='';
+function showModal(title,msg,text,showCopy){_modalCopyText=text;document.getElementById('modalTitle').textContent=title;document.getElementById('modalMsg').textContent=msg;document.getElementById('modalContent').innerHTML=showCopy?'<button class="modal-copy-btn" onclick="copyModalText()">📋 コピー</button>':'';document.getElementById('modalOverlay').classList.add('open');}
+function copyModalText(){navigator.clipboard.writeText(_modalCopyText).then(function(){showToast('コピーしました！');});}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('open');}
+function closeModalOutside(e){if(e.target===document.getElementById('modalOverlay'))closeModal();}
+function showToast(msg){var toast=document.getElementById('toast');if(!toast){toast=document.createElement('div');toast.id='toast';toast.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#4a9eff;color:#fff;padding:10px 20px;border-radius:8px;z-index:999;font-size:0.9rem;pointer-events:none;transition:opacity 0.3s';document.body.appendChild(toast);}toast.textContent=msg;toast.style.opacity='1';clearTimeout(toast._t);toast._t=setTimeout(function(){toast.style.opacity='0';},2000);}
+updateCacheInfo();updateCharCount();
+</script>
+</body>
+</html>
